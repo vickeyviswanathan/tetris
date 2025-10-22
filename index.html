@@ -4,10 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>AR Tetris</title>
-    <!-- Removed Tailwind CSS CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
-    <!-- Removed Google Fonts CDN -->
+    <!-- 
+      MODIFICATION:
+      The scripts below are now pointing to local files in your repository.
+      You will need to download these files and add them to your GitHub repo
+      alongside this index.html file. 
+      
+      See the README.md file for instructions.
+    -->
+    <script src="./three.min.js"></script>
+    <script src="./tone.js"></script>
+    
     <style>
         body {
             /* Replaced 'Orbitron' with a standard monospace font stack */
@@ -220,6 +227,7 @@
         };
         
         // --- AUDIO ENGINE ---
+        // This code will only run *after* tone.js has successfully loaded
         const synths = {
             move: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination(),
             rotate: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination(),
@@ -256,6 +264,7 @@
         const PIECE_TYPES = 'IJLOSTZ';
 
         // --- CORE INITIALIZATION ---
+        // This code will only run *after* three.min.js has successfully loaded
         function init() {
             scene = new THREE.Scene();
 
@@ -563,7 +572,8 @@
         }
 
         function softDrop() { if (gameState !== 'playing' || !currentPiece) return; if (!currentPiece.move(0, -1)) placePiece(); else lastDropTime = performance.now(); }
-        function hardDrop() { if (gameState !== 'playing' || !currentPiece) return; while(currentPiece.move(0, -1)); placePiece(); }
+        function hardDrop() { if (gameState !== 'playing' || !currentPiece) return; while(currentPiece.move(0, -1)); placePiec
+e(); }
 
         // --- CONTROLS ---
         function addControls() {
@@ -652,8 +662,22 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        init();
+        // Wait for the window to load before trying to init the game
+        // This ensures that THREE and Tone are defined (if loaded correctly)
+        window.addEventListener('load', () => {
+            try {
+                init();
+            } catch (e) {
+                console.error("Failed to initialize game:", e);
+                // Display a friendly error to the user
+                document.body.innerHTML = `<div style="padding: 20px; text-align: center; font-size: 18px; color: red; font-family: monospace;">
+                    <h1>Error</h1>
+                    <p>Could not load game libraries (three.min.js or tone.js).</p>
+                    <p>Please make sure you have downloaded these files and placed them in the same folder as index.html.</p>
+                    <p><i>Details: ${e.message}</i></p>
+                    </div>`;
+            }
+        });
     </script>
 </body>
 </html>
-
