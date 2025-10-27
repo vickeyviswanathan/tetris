@@ -4,16 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>AR Tetris</title>
-    <!-- 
+    <!--
       MODIFICATION:
-      The scripts below are now pointing to local files in your repository.
-      You will need to download these files and add them to your GitHub repo
-      alongside this index.html file. 
-      
-      See the README.md file for instructions.
+      Replaced local file paths with CDN links to make this
+      a single, self-contained HTML file that works anywhere.
     -->
-    <script src="./three.min.js"></script>
-    <script src="./tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     
     <style>
         body {
@@ -227,27 +224,36 @@
         };
         
         // --- AUDIO ENGINE ---
-        // This code will only run *after* tone.js has successfully loaded
-        const synths = {
-            move: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination(),
-            rotate: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination(),
-            drop: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 4, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(),
-            clear: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 } }).toDestination(),
-            gameOver: new Tone.Synth({ oscillator: { type: "fmsine" }, envelope: { attack: 0.1, decay: 0.5, sustain: 0.1, release: 1 } }).toDestination(),
-            music: new Tone.MonoSynth({ volume: -20, oscillator: { type: "pulse", width: 0.6 }, envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 0.8 }, filterEnvelope: { attack: 0.05, decay: 0.1, sustain: 0.2, release: 0.8, baseFrequency: 300, octaves: 4 } }).toDestination()
-        };
-        const musicPattern = new Tone.Pattern((time, note) => synths.music.triggerAttackRelease(note, "8n", time), ["C3", "E3", "G3", "B3"], "upDown");
-        musicPattern.interval = "8n";
+        let synths = {};
+        let musicPattern;
+
+        function initializeAudio() {
+            // This code will only run *after* tone.js has successfully loaded
+            synths = {
+                move: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination(),
+                rotate: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination(),
+                drop: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 4, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(),
+                clear: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 } }).toDestination(),
+                gameOver: new Tone.Synth({ oscillator: { type: "fmsine" }, envelope: { attack: 0.1, decay: 0.5, sustain: 0.1, release: 1 } }).toDestination(),
+                music: new Tone.MonoSynth({ volume: -20, oscillator: { type: "pulse", width: 0.6 }, envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 0.8 }, filterEnvelope: { attack: 0.05, decay: 0.1, sustain: 0.2, release: 0.8, baseFrequency: 300, octaves: 4 } }).toDestination()
+            };
+            musicPattern = new Tone.Pattern((time, note) => synths.music.triggerAttackRelease(note, "8n", time), ["C3", "E3", "G3", "B3"], "upDown");
+            musicPattern.interval = "8n";
+        }
 
         function playSound(sound) {
-            if (Tone.context.state !== 'running') return;
-            switch(sound) {
-                case 'move': synths.move.triggerAttackRelease("C3", "8n"); break;
-                case 'rotate': synths.rotate.triggerAttackRelease("G4", "16n"); break;
-                case 'drop': synths.drop.triggerAttackRelease("C2", "8n"); break;
-                case 'clear': synths.clear.triggerAttackRelease("C5", "8n"); break;
-                case 'tetris': synths.clear.triggerAttackRelease("G5", "4n"); break;
-                case 'gameOver': synths.gameOver.triggerAttackRelease("C2", "1n"); break;
+            if (!synths.move || Tone.context.state !== 'running') return; // Check if synths are initialized
+            try {
+                switch(sound) {
+                    case 'move': synths.move.triggerAttackRelease("C3", "8n"); break;
+                    case 'rotate': synths.rotate.triggerAttackRelease("G4", "16n"); break;
+                    case 'drop': synths.drop.triggerAttackRelease("C2", "8n"); break;
+                    case 'clear': synths.clear.triggerAttackRelease("C5", "8n"); break;
+                    case 'tetris': synths.clear.triggerAttackRelease("G5", "4n"); break;
+                    case 'gameOver': synths.gameOver.triggerAttackRelease("C2", "1n"); break;
+                }
+            } catch (e) {
+                console.warn("Audio playback error:", e);
             }
         }
         
@@ -310,6 +316,9 @@
             spaceDust = createParticleLayer(12000, 0.02, 0xaaaaaa, 0.03);
             scene.add(stars, nebula, spaceDust);
 
+            // Initialize audio here, now that Tone.js is loaded
+            initializeAudio();
+
             ui.startButton.addEventListener('click', startGame);
             ui.restartButton.addEventListener('click', startGame);
 
@@ -323,7 +332,14 @@
 
         // --- GAME FLOW ---
         async function startGame() {
-            if (Tone.context.state !== 'running') await Tone.start();
+            if (Tone.context.state !== 'running') {
+                try {
+                    await Tone.start();
+                    console.log("Audio context started");
+                } catch (e) {
+                    console.warn("Could not start audio context:", e);
+                }
+            }
             
             // Reset camera for gameplay
             camera.position.set(0, 0, 50);
@@ -344,14 +360,23 @@
             
             spawnNewPiece();
             
-            Tone.Transport.start();
-            musicPattern.start(0);
+            try {
+                Tone.Transport.start();
+                musicPattern.start(0);
+            } catch (e) {
+                console.warn("Could not start music:", e);
+            }
         }
 
         function gameOver() {
             gameState = 'gameover';
             playSound('gameOver');
-            musicPattern.stop(); Tone.Transport.stop();
+            try {
+                musicPattern.stop(); 
+                Tone.Transport.stop();
+            } catch(e) {
+                console.warn("Could not stop music:", e);
+            }
 
             if (score > highScore) { highScore = score; saveHighScore(); }
 
@@ -362,13 +387,23 @@
         }
 
         function loadHighScore() {
-            const savedScore = localStorage.getItem('neonTetrisHighScore');
-            highScore = savedScore ? parseInt(savedScore, 10) : 0;
-            ui.highscore.textContent = highScore;
+            try {
+                const savedScore = localStorage.getItem('neonTetrisHighScore');
+                highScore = savedScore ? parseInt(savedScore, 10) : 0;
+                ui.highscore.textContent = highScore;
+            } catch(e) {
+                console.warn("Could not load high score from localStorage:", e);
+                highScore = 0;
+                ui.highscore.textContent = 0;
+            }
         }
 
         function saveHighScore() {
-            localStorage.setItem('neonTetrisHighScore', highScore);
+             try {
+                localStorage.setItem('neonTetrisHighScore', highScore);
+             } catch (e) {
+                console.warn("Could not save high score to localStorage:", e);
+             }
         }
 
         // --- STABILIZED GAME LOGIC ---
@@ -414,16 +449,16 @@
                     if (value) {
                       const gridX = this.x + x_offset;
                       const gridY = this.y - y_offset;
-                
+            
                       if (gridX < 0 || gridX >= GRID_WIDTH || gridY < 0 || gridY >= GRID_HEIGHT) return;
-                
+            
                       const block = new THREE.Group();
                       const cube = new THREE.Mesh(geometry, material);
                       const edges = new THREE.EdgesGeometry(geometry);
                       const wireframe = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xADFFFF, transparent: true, opacity: 0.6 }));
                       block.add(cube);
                       block.add(wireframe);
-                
+            
                       block.position.set(gridX + 0.5, gridY + 0.5, 0);
                       this.blocks.push(block);
                       gameWorld.add(block);
@@ -486,7 +521,7 @@
             }
             currentPiece = new Tetromino(template.shape, template.color, x, y);
         }
-       
+        
         function placePiece() {
             if (!currentPiece) return;
             playSound('drop');
@@ -572,8 +607,10 @@
         }
 
         function softDrop() { if (gameState !== 'playing' || !currentPiece) return; if (!currentPiece.move(0, -1)) placePiece(); else lastDropTime = performance.now(); }
-        function hardDrop() { if (gameState !== 'playing' || !currentPiece) return; while(currentPiece.move(0, -1)); placePiec
-e(); }
+        
+        // --- FIX ---
+        // Corrected the typo 'placePiec e' to 'placePiece'
+        function hardDrop() { if (gameState !== 'playing' || !currentPiece) return; while(currentPiece.move(0, -1)); placePiece(); }
 
         // --- CONTROLS ---
         function addControls() {
@@ -596,25 +633,49 @@ e(); }
 
             gameContainer.addEventListener('touchmove', e => {
                 if (gameState !== 'playing' || e.touches.length === 0 || !currentPiece) return;
+                e.preventDefault(); // Prevent screen scroll
                 const deltaX = e.touches[0].clientX - touchStartX;
-                if (Math.abs(deltaX) > 30) {
+                const deltaY = e.touches[0].clientY - touchStartY;
+
+                // Prioritize horizontal movement
+                if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
                     currentPiece.move(deltaX > 0 ? 1 : -1, 0); playSound('move');
-                    touchStartX = e.touches[0].clientX; touchMoved = true;
+                    touchStartX = e.touches[0].clientX; // Reset start X
+                    touchStartY = e.touches[0].clientY; // Reset start Y
+                    touchMoved = true;
+                } 
+                // Check for soft drop (vertical swipe)
+                else if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY > 20) {
+                     softDrop();
+                     touchStartX = e.touches[0].clientX;
+                     touchStartY = e.touches[0].clientY;
+                     touchMoved = true;
                 }
-            }, { passive: true });
+            }, { passive: false }); // Set passive to false to allow preventDefault
 
             gameContainer.addEventListener('touchend', e => {
                 if (gameState !== 'playing' || !currentPiece) return;
-                const deltaY = e.changedTouches[0].clientY - touchStartY;
-                if (deltaY > 100 && touchMoved === false) hardDrop();
-                else if (deltaY > 20 && touchMoved === false) softDrop();
-                else if (!touchMoved) { currentPiece.rotate(); }
+                
+                // Check if it was a swipe or a tap
+                if (touchMoved) {
+                    // Check for hard drop (long vertical swipe)
+                    const deltaY = e.changedTouches[0].clientY - touchStartY;
+                    if (deltaY > 100) {
+                        hardDrop();
+                    }
+                } else {
+                    // If no significant movement, register as a tap (rotate)
+                    currentPiece.rotate();
+                }
+                touchMoved = false; // Reset for next touch
             });
         }
 
         // --- ANIMATION & RESIZE ---
         function animate(time) {
             requestAnimationFrame(animate);
+            if (!renderer) return; // Exit if init failed
+
             if (gameState === 'playing' && currentPiece && time - lastDropTime > dropInterval) {
                 if (!currentPiece.move(0, -1)) {
                     placePiece();
@@ -630,12 +691,14 @@ e(); }
                 camera.lookAt(scene.position);
             }
             
-            const timeSeconds = time * 0.001;
-            stars.rotation.y += stars.userData.speed * 0.05;
-            nebula.rotation.y += nebula.userData.speed * 0.05;
-            spaceDust.rotation.y += spaceDust.userData.speed * 0.05;
-            nebula.material.opacity = Math.sin(timeSeconds * 0.5) * 0.15 + 0.55;
-            nebula.material.color.setHSL(0.83 + Math.sin(timeSeconds * 0.1) * 0.1, 1.0, 0.6); 
+            if (stars && nebula && spaceDust) {
+                const timeSeconds = time * 0.001;
+                stars.rotation.y += stars.userData.speed * 0.05;
+                nebula.rotation.y += nebula.userData.speed * 0.05;
+                spaceDust.rotation.y += spaceDust.userData.speed * 0.05;
+                nebula.material.opacity = Math.sin(timeSeconds * 0.5) * 0.15 + 0.55;
+                nebula.material.color.setHSL(0.83 + Math.sin(timeSeconds * 0.1) * 0.1, 1.0, 0.6); 
+            }
             renderer.render(scene, camera);
         }
 
@@ -665,17 +728,27 @@ e(); }
         // Wait for the window to load before trying to init the game
         // This ensures that THREE and Tone are defined (if loaded correctly)
         window.addEventListener('load', () => {
+            // Check if libraries are loaded
+            if (typeof THREE === 'undefined' || typeof Tone === 'undefined') {
+                console.error("Failed to load libraries (THREE or Tone).");
+                document.body.innerHTML = `<div style="padding: 20px; text-align: center; font-size: 18px; color: red; font-family: monospace;">
+                    <h1>Error</h1>
+                    <p>Could not load game libraries (three.js or tone.js).</p>
+                    <p>Please check your internet connection and try again.</p>
+                    </div>`;
+                return;
+            }
+            
             try {
                 init();
             } catch (e) {
                 console.error("Failed to initialize game:", e);
                 // Display a friendly error to the user
                 document.body.innerHTML = `<div style="padding: 20px; text-align: center; font-size: 18px; color: red; font-family: monospace;">
-                    <h1>Error</h1>
-                    <p>Could not load game libraries (three.min.js or tone.js).</p>
-                    <p>Please make sure you have downloaded these files and placed them in the same folder as index.html.</p>
-                    <p><i>Details: ${e.message}</i></p>
-                    </div>`;
+                        <h1>Error</h1>
+                        <p>An unexpected error occurred while starting the game.</p>
+                        <p><i>Details: ${e.message}</i></p>
+                        </div>`;
             }
         });
     </script>
